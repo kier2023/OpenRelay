@@ -106,7 +106,7 @@ export async function sendToTelegram(post) {
             const chunks = splitText(fullText, TELEGRAM_MESSAGE_LIMIT);
 
             for (const chunk of chunks) {
-                await telegram.sendMessage(TELEGRAM_CHAT_ID, chunk, {
+                await telegram.sendMessage(env.telegramChatId, chunk, {
                     disable_web_page_preview: false
                 });
             }
@@ -117,22 +117,22 @@ export async function sendToTelegram(post) {
             const item = media[0];
 
             if (item.type === "photo") {
-                await telegram.sendPhoto(TELEGRAM_CHAT_ID, item.url, {
+                await telegram.sendPhoto(env.telegramChatId, item.url, {
                     caption
                 });
             } else if (item.type === "video") {
-                await telegram.sendVideo(TELEGRAM_CHAT_ID, item.url, {
+                await telegram.sendVideo(env.telegramChatId, item.url, {
                     caption,
                     supports_streaming: true
                 });
             } else {
-                await telegram.sendMessage(TELEGRAM_CHAT_ID, caption, {
+                await telegram.sendMessage(env.telegramChatId, caption, {
                     disable_web_page_preview: false
                 });
             };
 
             for (const chunk of overflow) {
-                await telegram.sendMessage(TELEGRAM_CHAT_ID, chunk, {
+                await telegram.sendMessage(env.telegramChatId, chunk, {
                     disable_web_page_preview: true
                 });
             };
@@ -145,10 +145,10 @@ export async function sendToTelegram(post) {
             ...(index === 0 ? { caption } : {})
         }));
 
-        await telegram.sendMediaGroup(TELEGRAM_CHAT_ID, mediaGroup);
+        await telegram.sendMediaGroup(env.telegramChatId, mediaGroup);
 
         for (const chunk of overflow) {
-            await telegram.sendMessage(TELEGRAM_CHAT_ID, chunk, {
+            await telegram.sendMessage(env.telegramChatId, chunk, {
                 disable_web_page_preview: true
             });
         }
@@ -159,7 +159,7 @@ export async function sendToTelegram(post) {
         const chunks = splitText(fallbackText, TELEGRAM_MESSAGE_LIMIT);
 
         for (const chunk of chunks) {
-            await telegram.sendMessage(TELEGRAM_CHAT_ID, chunk, {
+            await telegram.sendMessage(env.telegramChatId, chunk, {
                 disable_web_page_preview: false
             });
         };
