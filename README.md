@@ -49,7 +49,7 @@ It uses the X API to poll for recent posts and the Telegram Bot API to send text
 Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/kier2023/OpenRelay.git
 cd open_relay
 ```
 
