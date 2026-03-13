@@ -11,6 +11,15 @@ export function cleanCaption(text = "") {
 };
 
 /**
+ * Escapes text for Telegram HTML parse mode.
+ * @param {string} text
+ * @returns {string}
+ */
+export function escapeHtml(text = "") {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+};
+
+/**
  * Splits text into chunks that fit within Telegram message limits.
  * Prefers splitting on line breaks, then spaces.
  * @param {string} text
