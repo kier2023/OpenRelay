@@ -24,5 +24,6 @@ export const env = {
   xUsername: process.env.X_USERNAME,
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   telegramChatId: process.env.TELEGRAM_CHAT_ID,
-  pollMs
+  pollMs,
+  telegramAdminIds: String(process.env.TELEGRAM_ADMIN_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean),
 };
