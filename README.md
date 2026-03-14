@@ -36,6 +36,7 @@ It uses the X API to poll for recent posts and the Telegram Bot API to send text
 - Forwards photos and videos where available
 - Splits long captions and messages to stay within Telegram limits
 - Uses environment variables for configuration
+- Optional Telegram moderation commands for group administration
 
 ## Requirements
 
@@ -117,6 +118,12 @@ The target Telegram chat ID or channel ID where posts should be sent.
 How often the script checks X for new posts, in milliseconds.
 Example: `60000` = 60 seconds.
 
+`TELEGRAM_ADMIN_IDS`:
+Comma-separated list of Telegram user IDs allowed to execute moderation commands such as `/pin`, `/unpin`, `/delete`, and `/unpinall`.
+
+Example:
+TELEGRAM_ADMIN_IDS=123456789,987654321
+
 ## Setting up X API access
 
 Create an app and get your API credentials from the official X Developer Platform. X’s platform provides the Developer Console, app management, authentication resources, quickstart material, and API access documentation.
@@ -140,6 +147,31 @@ Start the relay with:
 Start the relay with:
 ```
 A successful startup should verify both APIs before entering the polling loop. If authentication succeeds, the service will begin checking X at the interval defined by `POLL_MS`.
+
+## Telegram Commands
+
+Open Relay includes optional Telegram moderation commands that can be used in groups or channels where the bot is an administrator.
+
+These commands are restricted to user IDs defined in the environment configuration.
+
+| Command | Description |
+|-------|-------------|
+| `/pin` | Pin the message you reply to |
+| `/unpin` | Unpin the replied message |
+| `/unpinall` | Remove all pinned messages |
+| `/delete` | Delete the replied message |
+| `/help` | Show available commands |
+
+Most commands must be used by replying to a message.
+
+Example:
+
+Reply to a message with:
+`/pin`
+to pin it.
+
+Admin commands will not work when Telegram's anonymous admin mode is enabled.
+Disable anonymous mode before using moderation commands.
 
 ### How it works
 
