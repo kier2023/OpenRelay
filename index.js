@@ -4,6 +4,7 @@ import { sleep } from "./src/utils/sleep.js";
 import { tick } from "./src/services/poller.js";
 import { xClient } from "./src/clients/twitter.js";
 import { telegram } from "./src/clients/telegram.js";
+import { registerCommands } from "./src/commands/index.js";
 
 /**
  * Verifies that the X API credentials are valid and that the configured
@@ -54,6 +55,10 @@ async function verifyTelegramConnection() {
 
 async function main() {
   console.log("Watcher starting...");
+
+  await telegram.deleteWebHook();
+  console.log("Telegram webhook removed (polling mode enabled)");
+  registerCommands();
 
   await verifyXConnection();
   await verifyTelegramConnection();
