@@ -2,11 +2,8 @@
 
 ![Node](https://img.shields.io/badge/node-%3E=18-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Status](https://img.shields.io/badge/status-active-success)
 
-Open Relay is a simple Node.js service that watches an X account and forwards newly published posts to a Telegram chat or channel.
-
-It uses the X API to poll for recent posts and the Telegram Bot API to send text, photos, and videos into Telegram. X provides developer access through its Developer Platform, and Telegram bots are created and managed through @BotFather.
+A small Node.js relay service that polls an X account and forwards posts to Telegram and optional Discord.
 
         ┌──────────────┐
         │      X       │
@@ -20,168 +17,115 @@ It uses the X API to poll for recent posts and the Telegram Bot API to send text
         │   Node.js    │
         └──────┬───────┘
                │
-        Telegram Bot API
-               │
-        ┌──────▼───────┐
-        │   Telegram   │
-        │  Channel /   │
-        │  Group / DM  │
-        └──────────────┘
+        ┌──────┴───────────────┐
+        │                      │
+ Telegram Bot API        Discord Webhook
+        │                      │
+ ┌──────▼───────┐       ┌──────▼───────┐
+ │   Telegram   │       │   Discord    │
+ │  Channel /   │       │   Server /   │
+ │  Group / DM  │       │   Channel    │
+ └──────────────┘       └──────────────┘
 
 ## Features
 
-- Polls an X account for newly published posts
-- Ignores older posts on startup
-- Forwards text-only posts to Telegram
-- Forwards photos and videos where available
-- Splits long captions and messages to stay within Telegram limits
-- Uses environment variables for configuration
-- Optional Telegram moderation commands for group administration
+- Polls an X user timeline for new posts
+- Forwards text, photos, and videos to Telegram
+- Optional Discord webhook forwarding with embed + attachment support
+- Reposts and quote posts styled for Discord
+- Rate-limited splitting for long text
+- Optional Telegram admin commands (`/pin`, `/unpin`, `/delete`, `/unpinall`)
 
 ## Requirements
 
-- Node.js 18 or newer
-- An X developer app / API access
-- A Telegram bot created with @BotFather
-- A Telegram chat ID or channel ID for the destination chat
+- Node.js 18+
+- X developer credentials
+- Telegram bot token and chat ID
+- Optional: Discord webhook URL and role mention
 
-## Installation
-
-Clone the repository:
+## Install
 
 ```bash
 git clone https://github.com/kier2023/OpenRelay.git
-cd open_relay
-```
-
-Install dependencies:
-
-```bash
+cd twitterGram
 npm install
 ```
 
-Create your environment file:
+## Environment
+
+Copy and edit `.env` from `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-If you are on Windows PowerShell, use:
-
-```bash
-Copy-Item .env.example .env
-```
-
-Then fill in your `.env` values.
-
-## Environment Variables
-
-Create a `.env` file in the project root:
+Then fill these values:
 
 ```env
-# Do NOT share your credentials with anyone.
-# This file contains private API keys.
-
-# X (Twitter) API
+# X
 X_BEARER_TOKEN=
 X_USER_ID=
 X_USERNAME=
 
-# Telegram Bot API
+# Telegram
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
+TELEGRAM_ADMIN_IDS=
 
-# Polling interval in milliseconds
+# Optional Discord
+DISCORD_ENABLED=false
+DISCORD_WEBHOOK_URL=
+DISCORD_ROLE=
+DISCORD_ROLE_ID=
+
+# Polling
 POLL_MS=60000
 ```
 
-### What each variable means
+### Discord variables
 
-`X_BEARER_TOKEN`:
-Your X API bearer token from your developer app. X’s Developer Platform provides API credentials and developer console access for apps and projects.
+- `DISCORD_ENABLED=true` to enable Discord integration
+- `DISCORD_WEBHOOK_URL` must be set when enabled
+- `DISCORD_ROLE` or `DISCORD_ROLE_ID` can be used for a role mention
 
-`X_USER_ID`:
-The numeric user ID of the X account you want to monitor.
-To get your User ID, you can use the helper script by runing:
-
-```bash
-node getUserId.js
-```
-
-`TELEGRAM_BOT_TOKEN`:
-Your Telegram bot token created through @BotFather.
-
-`TELEGRAM_CHAT_ID`:
-The target Telegram chat ID or channel ID where posts should be sent.
-
-`POLL_MS`:
-How often the script checks X for new posts, in milliseconds.
-Example: `60000` = 60 seconds.
-
-`TELEGRAM_ADMIN_IDS`:
-Comma-separated list of Telegram user IDs allowed to execute moderation commands such as `/pin`, `/unpin`, `/delete`, and `/unpinall`.
-
-Example:
-TELEGRAM_ADMIN_IDS=123456789,987654321
-
-## Setting up X API access
-
-Create an app and get your API credentials from the official X Developer Platform. X’s platform provides the Developer Console, app management, authentication resources, quickstart material, and API access documentation.
-
-Official documentation: [X Developer Platform](https://developer.x.com/)
-
-## Setting up a Telegram bot
-
-Telegram bots are created through @BotFather, and Telegram’s official docs point developers there for bot setup and token generation.
-
-Official documentation: [Telegram API](https://core.telegram.org/api)
-
-## Getting your Telegram chat ID
-Obtain the chat ID using your preferred method or helper script and place it in `TELEGRAM_CHAT_ID`. You can use the @raw_data_bot to get the id of a group, channel or user. 
-
-## Running the project
-
-Start the relay with:
+## Run
 
 ```bash
-Start the relay with:
+npm start
 ```
-A successful startup should verify both APIs before entering the polling loop. If authentication succeeds, the service will begin checking X at the interval defined by `POLL_MS`.
 
-## Telegram Commands
+The app verifies X and Telegram, then polls at `POLL_MS`.
 
-Open Relay includes optional Telegram moderation commands that can be used in groups or channels where the bot is an administrator.
+## Development and tests
 
-These commands are restricted to user IDs defined in the environment configuration.
+Run unit tests:
 
-| Command | Description |
-|-------|-------------|
-| `/pin` | Pin the message you reply to |
-| `/unpin` | Unpin the replied message |
-| `/unpinall` | Remove all pinned messages |
-| `/delete` | Delete the replied message |
-| `/help` | Show available commands |
+```bash
+npm test
+```
 
-Most commands must be used by replying to a message.
+## How it works
 
-Example:
+1. Startup loads `.env` and validates required vars.
+2. Main loop polls X via `fetchLatestPosts`.
+3. New posts are normalized in `src/services/telegramRelay.js`.
+4. Telegram sends messages using `node-telegram-bot-api`.
+5. If Discord enabled, it sends embed + attachments in `src/services/discordRelay.js`.
 
-Reply to a message with:
-`/pin`
-to pin it.
+## Discord behavior
 
-Admin commands will not work when Telegram's anonymous admin mode is enabled.
-Disable anonymous mode before using moderation commands.
+- Sends one embed per post with title, body, and quote blocks.
+- Optional role mentions are added as message content.
+- Media is downloaded and sent as actual webhook attachments.
+- Reposts/quotes are styled with blockquotes and source fields.
 
-### How it works
+## Telegram commands
 
-- On startup, the app verifies the X connection
-- It verifies the Telegram bot connection
-- It polls the configured X account for recent posts
-- On first run, it stores the newest post ID without forwarding older posts
-- On later checks, it forwards only posts newer than the last seen ID
+In groups, allowed IDs from `TELEGRAM_ADMIN_IDS` can run:
+- `/pin`, `/unpin`, `/delete`, `/unpinall`, `/help`
 
-### Development Notes
-- Never commit your real `.env` file
-- Commit a `.env.example` instead
-- Keep your API keys and bot token private
+## Notes
+
+- Do not commit real API keys.
+- Keep `.env` private.
+- If Discord is enabled, ensure webhook URL is valid and has permission in the channel.
