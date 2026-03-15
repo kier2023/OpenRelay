@@ -99,14 +99,6 @@ npm start
 
 The app verifies X and Telegram, then polls at `POLL_MS`.
 
-## Development and tests
-
-Run unit tests:
-
-```bash
-npm test
-```
-
 ## How it works
 
 1. Startup loads `.env` and validates required vars.
