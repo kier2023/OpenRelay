@@ -2,6 +2,7 @@
 
 ![Node](https://img.shields.io/badge/node-%3E=18-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+![Status](https://img.shields.io/badge/status-active-success)
 
 A small Node.js relay service that polls an X account and forwards posts to Telegram and optional Discord.
 ```
