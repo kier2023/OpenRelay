@@ -4,6 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 A small Node.js relay service that polls an X account and forwards posts to Telegram and optional Discord.
+```
 
         ┌──────────────┐
         │      X       │
@@ -26,6 +27,7 @@ A small Node.js relay service that polls an X account and forwards posts to Tele
  │  Channel /   │       │   Server /   │
  │  Group / DM  │       │   Channel    │
  └──────────────┘       └──────────────┘
+```
 
 ## Features
 
