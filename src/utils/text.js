@@ -1,5 +1,6 @@
 export const TELEGRAM_CAPTION_LIMIT = 1024;
 export const TELEGRAM_MESSAGE_LIMIT = 4096;
+export const DISCORD_MESSAGE_LIMIT = 2048;
 
 /**
  * Removes X shortlinks and collapses excessive empty lines.

@@ -12,6 +12,14 @@ for (const key of requiredEnv) {
   }
 }
 
+const discordEnabled = String(process.env.DISCORD_ENABLED ?? "false").trim().toLowerCase() === "true";
+
+if (discordEnabled) {
+  if (!process.env.DISCORD_WEBHOOK_URL) {
+    throw new Error("Missing required environment variable: DISCORD_WEBHOOK_URL when DISCORD_ENABLED=true");
+  }
+}
+
 const pollMs = Number(process.env.POLL_MS ?? "60000");
 
 if (Number.isNaN(pollMs) || pollMs <= 0) {
@@ -26,4 +34,7 @@ export const env = {
   telegramChatId: process.env.TELEGRAM_CHAT_ID,
   pollMs,
   telegramAdminIds: String(process.env.TELEGRAM_ADMIN_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean),
+  discordEnabled,
+  discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || "",
+  discordRole: process.env.DISCORD_ROLE_ID || "",
 };

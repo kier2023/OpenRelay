@@ -1,5 +1,6 @@
 import { fetchLatestPosts } from "../clients/twitter.js";
 import { normalizePosts, sendToTelegram } from "./telegramRelay.js";
+import { sendToDiscord } from "./discordRelay.js";
 
 let latestSeenId = null;
 
@@ -62,6 +63,12 @@ export async function tick() {
         console.log("Relaying to Telegram...");
 
         await sendToTelegram(post);
+
+        if (typeof sendToDiscord === "function") {
+          console.log("Relaying to Discord...");
+          await sendToDiscord(post);
+          console.log("Discord send attempted ✓\n");
+        };
 
         console.log("Sent ✓\n");
     };
