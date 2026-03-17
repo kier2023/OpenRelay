@@ -1,5 +1,6 @@
 import { telegram } from "../clients/telegram.js";
 import { env } from "../config/env.js";
+import { sleep } from "../utils/sleep.js";
 import { cleanCaption, splitText, escapeHtml, TELEGRAM_CAPTION_LIMIT, TELEGRAM_MESSAGE_LIMIT } from "../utils/text.js";
 
 /**
@@ -16,6 +17,146 @@ function getBestVideoVariant(variants = []) {
 
     mp4s.sort((a, b) => (b.bit_rate || 0) - (a.bit_rate || 0));
     return mp4s[0];
+};
+
+/**
+ * Checks if an error is related to a Telegram URL issue.
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function isTelegramUrlError(err) {
+    if (!err) return false;
+    const msg = (err.message || "").toString();
+    return msg.includes("Wrong file identifier/HTTP URL specified") || msg.includes("400 Bad Request") || msg.includes("file identifier");
+};
+
+/**
+ * Downloads media from a URL, returning a buffer and filename for re-uploading to Telegram if direct URL sending fails.
+ * Retries on failure up to 3 times with backoff. Returns null if all attempts fail.
+ * @param {string} url - the media URL to download
+ * @param {number} attempt - the current attempt number for retries (default 1)
+ * @returns {Promise<{ buffer: Buffer, filename: string, contentType: string } | null>} 
+ */
+async function downloadMediaFromUrl(url, attempt = 1) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            if (attempt < 3) {
+                await sleep(200 * attempt);
+                return downloadMediaFromUrl(url, attempt + 1);
+            };
+            return null;
+        };
+
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const contentType = res.headers.get("content-type") || "application/octet-stream";
+        const extension = (contentType.split("/")[1] || "dat").split(";")[0];
+        const filename = `media-${Date.now()}.${extension}`;
+
+        return { buffer, filename, contentType };
+    } catch {
+        if (attempt < 3) {
+            await sleep(200 * attempt);
+            return downloadMediaFromUrl(url, attempt + 1);
+        };
+        return null;
+    };
+};
+
+/**
+ * Sends a photo to Telegram, falling back to downloading and re-uploading if the URL is rejected (e.g. due to unsupported domains).
+ * @param {string} chatId - the Telegram chat ID to send the photo to
+ * @param {string} url - the URL of the photo to send
+ * @param {object} options - additional options for sending the photo (e.g. caption, parse_mode)
+ * @returns {Promise<void>}
+ */
+async function safeSendPhoto(chatId, url, options = {}) {
+    try {
+        return await telegram.sendPhoto(chatId, url, options);
+    } catch (err) {
+        if (!isTelegramUrlError(err)) throw err;
+
+        const file = await downloadMediaFromUrl(url);
+        if (!file) throw err;
+
+        return telegram.sendPhoto(chatId, file.buffer, {
+            ...options,
+            filename: file.filename
+        });
+    };
+};
+
+/**
+ * Sends a video to Telegram, falling back to downloading and re-uploading if the URL is rejected (e.g. due to unsupported domains).
+ * @param {string} chatId - the Telegram chat ID to send the video to
+ * @param {string} url - the URL of the video to send
+ * @param {object} options - additional options for sending the video (e.g. caption, parse_mode, supports_streaming)
+ * @returns {Promise<void>}
+ */
+async function safeSendVideo(chatId, url, options = {}) {
+    try {
+        return await telegram.sendVideo(chatId, url, options);
+    } catch (err) {
+        if (!isTelegramUrlError(err)) throw err;
+
+        const file = await downloadMediaFromUrl(url);
+        if (!file) throw err;
+
+        return telegram.sendVideo(chatId, file.buffer, {
+            ...options,
+            filename: file.filename,
+            supports_streaming: options.supports_streaming || true
+        });
+    };
+};
+
+/**
+ * Sends a media group to Telegram, falling back to individual sends if the group fails (e.g. due to unsupported URLs).
+ * @param {string} chatId - the Telegram chat ID to send the media group to
+ * @param {Array<{type: "photo"|"video", url: string}>} mediaItems - the media items to include in the group
+ * @param {string} caption - the caption for the media group
+ * @returns {Promise<void>}
+ */
+async function sendMediaGroupWithFallback(chatId, mediaItems, caption) {
+    if (!mediaItems.length) return;
+
+    try {
+        const mediaGroup = mediaItems.map((item, index) => ({
+            type: item.type === "video" ? "video" : "photo",
+            media: item.url,
+            ...(index === 0 ? { caption, parse_mode: "HTML" } : {}),
+            ...(item.type === "video" ? { supports_streaming: true } : {})
+        }));
+        await telegram.sendMediaGroup(chatId, mediaGroup);
+        return;
+    } catch (err) {
+        if (!isTelegramUrlError(err)) throw err;
+    };
+
+    const fallbackMediaGroup = [];
+
+    for (let i = 0; i < mediaItems.length; i++) {
+        const item = mediaItems[i];
+        const downloaded = await downloadMediaFromUrl(item.url);
+        if (!downloaded) continue;
+
+        const mediaEntry = {
+            type: item.type === "video" ? "video" : "photo",
+            media: downloaded.buffer,
+            filename: downloaded.filename,
+            ...(i === 0 ? { caption, parse_mode: "HTML" } : {}),
+            ...(item.type === "video" ? { supports_streaming: true } : {})
+        };
+
+        fallbackMediaGroup.push(mediaEntry);
+    };
+
+    if (!fallbackMediaGroup.length) {
+        throw new Error("Failed to download fallback media for media group.");
+    };
+
+    await telegram.sendMediaGroup(chatId, fallbackMediaGroup);
 };
 
 /**
@@ -193,12 +334,12 @@ export async function sendToTelegram(post) {
             const item = media[0];
 
             if (item.type === "photo") {
-                await telegram.sendPhoto(env.telegramChatId, item.url, {
+                await safeSendPhoto(env.telegramChatId, item.url, {
                     caption,
                     parse_mode: "HTML"
                 });
             } else if (item.type === "video") {
-                await telegram.sendVideo(env.telegramChatId, item.url, {
+                await safeSendVideo(env.telegramChatId, item.url, {
                     caption,
                     parse_mode: "HTML",
                     supports_streaming: true
@@ -220,13 +361,7 @@ export async function sendToTelegram(post) {
             return;
         }
 
-        const mediaGroup = media.map((item, index) => ({
-            type: item.type === "video" ? "video" : "photo",
-            media: item.url,
-            ...(index === 0 ? { caption, parse_mode: "HTML" } : {})
-        }));
-
-        await telegram.sendMediaGroup(env.telegramChatId, mediaGroup);
+        await sendMediaGroupWithFallback(env.telegramChatId, media, caption);
 
         for (const chunk of overflow) {
             await telegram.sendMessage(env.telegramChatId, chunk, {
